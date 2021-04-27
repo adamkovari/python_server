@@ -59,7 +59,6 @@ sign_csr(csr, ca_public_key, ca_private_key, "server-public-key.pem")
 print("signed")
 
 httpd = http.server.HTTPServer(('', 8000), Handler)
-print("signed2")
 httpd.socket = ssl.wrap_socket (httpd.socket, certfile='ca-public-key.pem', keyfile='ca-private-key.pem', server_side=True)
 print("Server running on https://0.0.0.0:" + str(8000))
 httpd.serve_forever()
