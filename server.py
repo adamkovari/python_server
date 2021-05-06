@@ -1,3 +1,5 @@
+import socket
+
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
@@ -10,10 +12,11 @@ from urllib.parse import urlparse
 import http.server
 import ssl
 import json
-import socketserver
-
+from main import object_recognition
+from datetime import datetime
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+
 
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -28,15 +31,39 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             'protocol_version': self.protocol_version
         }).encode())
 
+
+    def do_POST(self):
+        now = datetime.now().time()  # time object
+        print("POST started =", now)
+        #self.send_response(200)
+        #self.end_headers()
+        content_length = int(self.headers['Content-Length'])
+        post_data_str = self.rfile.read(content_length)
+        post_data_json = json.loads(post_data_str)
+        image_string = object_recognition(post_data_json['img'])
+        #print("POST: ")
+        #print(post_data_json['img'])
+        self.send_response(200)
+        #self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        #print(json.dumps({'img': image_string}))
+        now = datetime.now().time()  # time object
+        print("Post ended =", now)
+        self.wfile.write(json.dumps({
+            'img' : image_string
+        }).encode())
+
+
+
 private_key = generate_private_key("ca-private-key.pem", "secret_password")
 
-generate_public_key(private_key, filename="ca-public-key.pem", country="HU", state="Pest", locality="Budapest", org="BME student project", hostname="192.168.1.66",)
+generate_public_key(private_key, filename="ca-public-key.pem", country="HU", state="Pest", locality="Budapest", org="BME student project", hostname="hostname",)
 
 server_private_key = generate_private_key("server-private-key.pem", "serverpassword")
 print("server_private_key: ")
 print(server_private_key)
 
-generate_csr(server_private_key, filename="server-csr.pem", country="HU", state="Pest", locality="Budapest", org="BME student project", alt_names=["localhost"], hostname="192.168.1.66",)
+generate_csr(server_private_key, filename="server-csr.pem", country="HU", state="Pest", locality="Budapest", org="BME student project",  hostname="hostname",)
 
 csr_file = open("server-csr.pem", "rb")
 csr = x509.load_pem_x509_csr(csr_file.read(), default_backend())
@@ -58,7 +85,9 @@ print(private_key)
 sign_csr(csr, ca_public_key, ca_private_key, "server-public-key.pem")
 print("signed")
 
-httpd = http.server.HTTPServer(('', 8000), Handler)
-httpd.socket = ssl.wrap_socket (httpd.socket, certfile='ca-public-key.pem', keyfile='ca-private-key.pem', server_side=True)
-print("Server running on https://0.0.0.0:" + str(8000))
+
+httpd = http.server.HTTPServer(('192.168.1.66', 443), Handler)
+httpd.socket = ssl.wrap_socket (httpd.socket, certfile='server-public-key.pem', keyfile='server-private-key.pem', server_side=True)
+print("Server running on https://localhost:" + str(8082))
 httpd.serve_forever()
+
